@@ -1,47 +1,45 @@
 defmodule Sloc do
 
-  @path "../turtle/turtle-api/lib"
-
-  def summary do
-    files
-    |> Stream.map(fn p -> {p, line_count(p)} end)
+  def summary(n, _) when is_number(n), do: ""
+  def summary(tree, indention \\ 0) do
+    pairs = tree
+    |> Enum.map(fn {name, subtree} -> {name, subtree, total(subtree)} end)
+    |> Enum.sort_by(fn {_, subtree, tot} -> -tot end)
+    |> Enum.map_join("\n", fn {name, subtree, tot} ->
+      result = String.duplicate("  ", indention) <> "#{name} (#{tot})"
+      subresult = summary(subtree, indention + 1)
+      case whitespace?(subresult) do
+        true -> result
+        false -> result <> "\n" <> subresult
+      end
+    end)
   end
 
-  def files do
-    ls_r!(@path)
-    |> filter_by_extensions(["ex", "exs"])
-  end
-
-  def filter_by_extensions(files, extensions) do
-    files
-    |> Stream.filter(&has_ext?(&1, extensions))
-  end
-
-  def ls_r!(path \\ ".") do
+  def count(path, opts \\ []) do
     cond do
-      File.regular?(path) -> [path]
+      File.regular?(path) ->
+        line_count(path)
       File.dir?(path) ->
-        File.ls!(path)
-        |> Stream.map(&Path.join(path, &1))
-        |> Stream.map(&ls_r!/1)
-        |> Stream.concat
-      true -> []
+        for el <- File.ls!(path), into: %{} do
+          {el, count(Path.join(path, el))}
+        end
     end
   end
 
-  def path_ancestors(path), do: do_path_ancestors(path, [path])
-  def do_path_ancestors(path, ancestors) do
-    case Path.dirname(path) do
-      ^path -> ancestors
-      parent -> do_path_ancestors(parent, [parent | ancestors])
-    end
+  def total(tree) when is_map(tree) do
+    tree
+    |> Enum.map(fn {_, t} -> total(t) end)
+    |> Enum.sum()
   end
+  def total(n) when is_number(n), do: n
 
   def line_count(filepath) do
     File.stream!(filepath)
-    |> Stream.reject(&Regex.match?(~r/^\s*$/, &1))
-    |> Enum.count
+    |> Stream.reject(&whitespace?/1)
+    |> Enum.count()
   end
+
+  defp whitespace?(string), do: Regex.match?(~r/^(\n|\s*)$/, string)
 
   defp has_ext?(path, extensions) do
     Enum.member?(extensions, get_ext(path))

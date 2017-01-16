@@ -4,10 +4,15 @@ defmodule Sloc.Mixfile do
   def project do
     [app: :sloc,
      version: "0.1.0",
-     elixir: "~> 1.3",
+     elixir: "~> 1.4",
      build_embedded: Mix.env == :prod,
      start_permanent: Mix.env == :prod,
-     deps: deps()]
+     deps: deps(),
+     escript: escript()]
+  end
+
+  def escript do
+    [main_module: Sloc.CLI]
   end
 
   # Configuration for the OTP application
