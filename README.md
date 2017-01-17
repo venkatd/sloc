@@ -1,24 +1,11 @@
 # Sloc
 
-**TODO: Add description**
+**Count the lines of code in your source dir**
 
 ## Installation
 
-If [available in Hex](https://hex.pm/docs/publish), the package can be installed as:
+  1. In your the directory of the source code, run:
 
-  1. Add `sloc` to your list of dependencies in `mix.exs`:
-
-    ```elixir
-    def deps do
-      [{:sloc, "~> 0.1.0"}]
-    end
     ```
-
-  2. Ensure `sloc` is started before your application:
-
-    ```elixir
-    def application do
-      [applications: [:sloc]]
-    end
+    mix escript.build && mix escript.install
     ```
-
