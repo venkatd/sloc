@@ -1,37 +1,46 @@
+defmodule Sloc.File do
+  defstruct [:path, :name, :ext, count: :not_loaded]
+end
+
+defmodule Sloc.Dir do
+  defstruct [:path, :name, count: :not_loaded, children: :not_loaded]
+end
+
 defmodule Sloc do
 
-  def summary(n, _) when is_number(n), do: ""
-  def summary(tree, indention \\ 0) do
-    pairs = tree
-    |> Enum.map(fn {name, subtree} -> {name, subtree, total(subtree)} end)
-    |> Enum.sort_by(fn {_, subtree, tot} -> -tot end)
-    |> Enum.map_join("\n", fn {name, subtree, tot} ->
-      result = String.duplicate("  ", indention) <> "#{name} (#{tot})"
-      subresult = summary(subtree, indention + 1)
-      case whitespace?(subresult) do
-        true -> result
-        false -> result <> "\n" <> subresult
-      end
-    end)
+  def calculate(path) when is_binary(path) do
+    path |> get_tree() |> calculate()
+  end
+  def calculate(%Sloc.File{path: path}=file) do
+    %Sloc.File{file | count: line_count(path)}
+  end
+  def calculate(%Sloc.Dir{children: children}=dir) do
+    calculated_children = for {name, item} <- children, into: %{}, do: {name, calculate(item)}
+    count = calculated_children |> Enum.map(fn {_, item} -> item.count end) |> Enum.sum()
+    %Sloc.Dir{dir | children: calculated_children, count: count}
   end
 
-  def count(path, opts \\ []) do
+  def get_tree(path, opts \\ []) when is_binary(path) do
     cond do
       File.regular?(path) ->
-        line_count(path)
+        %Sloc.File{path: path, name: Path.basename(path), ext: get_ext(path)}
       File.dir?(path) ->
-        for el <- File.ls!(path), into: %{} do
-          {el, count(Path.join(path, el))}
-        end
+        children = for item <- get_children(path, opts), into: %{}, do: {item.name, item}
+        %Sloc.Dir{path: path, name: Path.basename(path), children: children}
     end
   end
 
-  def total(tree) when is_map(tree) do
-    tree
-    |> Enum.map(fn {_, t} -> total(t) end)
-    |> Enum.sum()
+  def get_children(path, opts) do
+    path
+    |> File.ls!()
+    |> Enum.map(&Path.join(path, &1))
+    |> Enum.map(&get_tree/1)
+    |> Enum.reject(&blacklisted?(&1, opts))
   end
-  def total(n) when is_number(n), do: n
+
+  def blacklisted?(%Sloc.Dir{name: name}, _opts) when name in ~w(.git _build deps), do: true
+  def blacklisted?(%Sloc.File{ext: ext}, _opts) when ext in ~w(png jpg jpeg), do: true
+  def blacklisted?(_, _opts), do: false
 
   def line_count(filepath) do
     File.stream!(filepath)
@@ -40,10 +49,6 @@ defmodule Sloc do
   end
 
   defp whitespace?(string), do: Regex.match?(~r/^(\n|\s*)$/, string)
-
-  defp has_ext?(path, extensions) do
-    Enum.member?(extensions, get_ext(path))
-  end
 
   defp get_ext(path) do
     case Path.extname(path) do

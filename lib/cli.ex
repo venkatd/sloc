@@ -1,10 +1,11 @@
 defmodule Sloc.CLI do
 
-  def main(args \\ []) do
-    {opts, args, []} = OptionParser.parse(args, switches: [])
-    System.cwd() |> Sloc.count() |> IO.puts()
-
-    # System.cwd() |> Sloc.count() |> Sloc.summary() |> IO.puts()
+  def main(_args \\ []) do
+    # {opts, args, []} = OptionParser.parse(args, switches: [])
+    System.cwd()
+    |> Sloc.calculate()
+    |> Sloc.Formatter.format()
+    |> IO.puts()
   end
 
 end
